@@ -64,3 +64,7 @@ Lỗi: 400 `INVALID_INPUT`; 403 `LICENSE_INVALID`, `DEVICE_LIMIT`, `ACTIVATION_R
 `npm test` dùng PostgreSQL chạy WASM qua PGlite để thực thi schema/SQL thật và kiểm thử API: xác thực quản trị, tạo/kích hoạt/kiểm tra/thu hồi, số thiết bị, hết hạn, input lỗi, rate limit và migration lặp lại. Chưa thay thế kiểm thử kết nối TLS tới PostgreSQL production hoặc xác minh deploy trên Vercel. `SELECT ... FOR UPDATE` trên license tuần tự hóa kích hoạt cùng key trong PostgreSQL production; kiểm thử cạnh tranh production vẫn cần database thật.
 
 Repo `modnro` được khảo sát có launcher WinForms .NET 8 và mod Unity net35. Chưa tích hợp hoặc build lại bản mod trong thay đổi này; chưa xác minh có project mobile riêng. Web/API không tự khóa các bản app đã phát hành. Chỉ công bố cơ chế kiểm soát có hiệu lực sau khi tích hợp và thử nghiệm client trên từng nền tảng.
+
+### Gỡ thiết bị khi nâng cấp client
+
+Dashboard có nút **Gỡ thiết bị** cho key đã kích hoạt. Thao tác yêu cầu mã quản trị và xác nhận, xóa các thiết bị đã gắn nhưng giữ nguyên hạn dùng/trạng thái thu hồi. App cũ sẽ bị từ chối trong lần check tiếp theo; app mới có thể activate lại trong số thiết bị cho phép. Dùng một lần khi chuyển từ ID Unity cũ sang ID dùng chung QLTK/game; không cần tạo key mới.

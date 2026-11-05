@@ -14,7 +14,7 @@ return async function handler(req,res) {
   if(!input || typeof input!=='object' || Array.isArray(input)) throw new ApiError(400,'INVALID_INPUT');
   if(Buffer.byteLength(JSON.stringify(input))>4096) throw new ApiError(413,'BODY_TOO_LARGE');
   const {action}=input;
-  if(!['list','create','revoke','activate','check'].includes(action)) throw new ApiError(400,'UNKNOWN_ACTION');
+  if(!['list','create','revoke','reset-devices','activate','check'].includes(action)) throw new ApiError(400,'UNKNOWN_ACTION');
   db=await getConnection();
   // Vercel overwrites x-vercel-forwarded-for. Local development uses socket IP.
   const ip=process.env.VERCEL ? req.headers['x-vercel-forwarded-for'] : req.socket?.remoteAddress;
@@ -29,6 +29,17 @@ return async function handler(req,res) {
    const value=newLicense(input);
    await db.query('INSERT INTO licenses(id,key_hash,label,duration_days,max_devices) VALUES($1,$2,$3,$4,$5)',[value.id,value.keyHash,value.label,value.durationDays,value.maxDevices]);
    return send(201,{id:value.id,key:value.key});
+  }
+  if(action==='reset-devices') {
+   if(typeof input.id!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.id)) throw new ApiError(400,'INVALID_ID');
+   await db.query('BEGIN');
+   try {
+    const {rows}=await db.query('SELECT id FROM licenses WHERE id=$1 FOR UPDATE',[input.id]);
+    if(!rows.length) throw new ApiError(404,'NOT_FOUND');
+    await db.query('DELETE FROM devices WHERE license_id=$1',[input.id]);
+    await db.query('COMMIT');
+   } catch(error) {await db.query('ROLLBACK');throw error;}
+   return send(200,{ok:true});
   }
   if(action==='revoke') {
    if(typeof input.id!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.id)) throw new ApiError(400,'INVALID_ID');

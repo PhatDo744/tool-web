@@ -45,3 +45,21 @@ test('missing and too short admin config are distinguished from wrong credential
  }finally{process.env.ADMIN_TOKEN=saved;}
  assert.equal((await call({action:'list'},false,'POST','192.0.2.21')).code,401);
 });
+test('admin can release devices without renewing expiry; old checks stop and new device can activate',async()=>{
+ const created=await call({action:'create',durationDays:2,maxDevices:1});
+ const old={key:created.body.key,deviceId:'old-installation-0001',platform:'pc'};
+ const fresh={...old,deviceId:'shared-installation-0001'};
+ const activated=await call({action:'activate',...old},false);
+ assert.equal(activated.code,200);
+ assert.equal((await call({action:'activate',...fresh},false)).code,403);
+ assert.equal((await call({action:'reset-devices',id:created.body.id},false)).code,401);
+ assert.equal((await call({action:'reset-devices',id:created.body.id})).code,200);
+ assert.equal((await call({action:'check',...old},false)).body.error,'ACTIVATION_REQUIRED');
+ const again=await call({action:'activate',...fresh},false);
+ assert.equal(again.code,200);
+ assert.equal(new Date(again.body.expiresAt).getTime(),new Date(activated.body.expiresAt).getTime());
+ assert.equal((await call({action:'activate',...old},false)).body.error,'DEVICE_LIMIT');
+ await call({action:'revoke',id:created.body.id});
+ await call({action:'reset-devices',id:created.body.id});
+ assert.equal((await call({action:'activate',...fresh},false)).body.error,'LICENSE_INVALID');
+});
