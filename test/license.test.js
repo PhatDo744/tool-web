@@ -16,3 +16,9 @@ test('device limit enforced across pc and mobile; existing device still works',a
 test('revoked and expired licenses cannot be activated or checked',async()=>{const l=await issue();await verifyLicense(db,request(l),true);await db.query('UPDATE licenses SET expires_at=now()-interval \'1 second\' WHERE id=$1',[l.id]);await assert.rejects(()=>verifyLicense(db,request(l)),{message:'LICENSE_INVALID'});const r=await issue();await db.query('UPDATE licenses SET revoked_at=now() WHERE id=$1',[r.id]);await assert.rejects(()=>verifyLicense(db,request(r),true),{message:'LICENSE_INVALID'});});
 test('unknown and malformed keys rejected without leaking key existence',async()=>{await assert.rejects(()=>verifyLicense(db,request(newLicense({})),true),{message:'LICENSE_INVALID'});await assert.rejects(()=>verifyLicense(db,{key:'bad',deviceId:'short',platform:'pc'},true),{message:'INVALID_INPUT'});});
 test('schema can be reapplied without losing licenses',async()=>{const before=await db.query('SELECT count(*) FROM licenses');await db.exec(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));assert.deepEqual((await db.query('SELECT count(*) FROM licenses')).rows,before.rows);});
+test('copied server token ignores surrounding whitespace but still rejects wrong tokens',()=>{
+ const secret='b'.repeat(64);
+ assert.equal(adminAuthorized(`Bearer ${secret}`,` \n${secret}\r\n`),true);
+ assert.equal(adminAuthorized(`Bearer ${'c'.repeat(64)}`,` ${secret} `),false);
+ assert.equal(adminAuthorized('Bearer '+ 'x'.repeat(31),' '+ 'x'.repeat(31)+' '),false);
+});

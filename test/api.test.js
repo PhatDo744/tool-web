@@ -34,3 +34,14 @@ test('unauthenticated admin attempts hit a persistent rate limit',async()=>{
  for(let i=0;i<60;i++)assert.equal((await call({action:'list'},false,'POST','192.0.2.1')).code,401);
  const result=await call({action:'list'},false,'POST','192.0.2.1');assert.equal(result.code,429);assert.equal(result.headers['Retry-After'],'60');
 });
+test('missing and too short admin config are distinguished from wrong credentials',async()=>{
+ const saved=process.env.ADMIN_TOKEN;
+ try {
+  for(const value of ['', 'short', ' '.repeat(64)]){
+   process.env.ADMIN_TOKEN=value;
+   const result=await call({action:'list'},true,'POST','192.0.2.20');
+   assert.equal(result.code,503);assert.equal(result.body.error,'ADMIN_NOT_CONFIGURED');
+  }
+ }finally{process.env.ADMIN_TOKEN=saved;}
+ assert.equal((await call({action:'list'},false,'POST','192.0.2.21')).code,401);
+});

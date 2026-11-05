@@ -1,5 +1,5 @@
 import { connect } from '../lib/db.js';
-import { adminAuthorized, ApiError, hash, newLicense, verifyLicense } from '../lib/core.js';
+import { adminTokenConfigured, adminAuthorized, ApiError, hash, newLicense, verifyLicense } from '../lib/core.js';
 export function createHandler(getConnection = connect) {
 return async function handler(req,res) {
  res.setHeader('Cache-Control','no-store');
@@ -23,6 +23,7 @@ return async function handler(req,res) {
   const {rows:[limit]}=await db.query("INSERT INTO rate_limits(bucket,hits,reset_at) VALUES($1,1,now()+interval '1 minute') ON CONFLICT(bucket) DO UPDATE SET hits=rate_limits.hits+1 RETURNING hits",[bucket]);
   if(limit.hits>60) {res.setHeader('Retry-After','60');throw new ApiError(429,'RATE_LIMITED');}
   if(action==='activate'||action==='check') return send(200,await verifyLicense(db,input,action==='activate'));
+  if(!adminTokenConfigured()) throw new ApiError(503,'ADMIN_NOT_CONFIGURED');
   if(!adminAuthorized(req.headers.authorization)) throw new ApiError(401,'UNAUTHORIZED');
   if(action==='create') {
    const value=newLicense(input);

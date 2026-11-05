@@ -1,6 +1,6 @@
 let token='';
 const el=id=>document.getElementById(id);
-const messages={UNAUTHORIZED:'Mã quản trị không đúng hoặc chưa được cấu hình.',SERVICE_UNAVAILABLE:'Chưa kết nối được database. Kiểm tra cấu hình máy chủ.',RATE_LIMITED:'Quá nhiều yêu cầu. Vui lòng chờ một phút.',INVALID_INPUT:'Thông tin chưa hợp lệ.'};
+const messages={UNAUTHORIZED:'Mã quản trị không khớp cấu hình của bản deploy hiện tại. Nếu vừa đổi ADMIN_TOKEN trên Vercel, hãy Redeploy rồi thử lại.',ADMIN_NOT_CONFIGURED:'Máy chủ chưa có ADMIN_TOKEN hợp lệ (tối thiểu 32 ký tự). Đặt biến cho Production trên Vercel rồi Redeploy.',SERVICE_UNAVAILABLE:'Chưa kết nối được database. Kiểm tra cấu hình máy chủ.',RATE_LIMITED:'Quá nhiều yêu cầu. Vui lòng chờ một phút.',INVALID_INPUT:'Thông tin chưa hợp lệ.'};
 async function api(action,values={}){
  const response=await fetch('/api/index',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({action,...values})});
  const data=await response.json();if(!response.ok)throw Error(messages[data.error]||data.error||'Có lỗi xảy ra.');return data;
