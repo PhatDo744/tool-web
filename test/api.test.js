@@ -15,11 +15,20 @@ process.env.LICENSE_ENCRYPTION_KEY = "test-only-vault-encryption-key-".repeat(
   3,
 );
 process.env.ADMIN_TOKEN = "test-only-admin-secret-".repeat(3);
-async function call(body, auth = true, method = "POST", ip = "127.0.0.10") {
+async function call(
+  body,
+  auth = true,
+  method = "POST",
+  ip = "127.0.0.10",
+  extraHeaders = {},
+) {
   const req = {
     method,
     body,
-    headers: { authorization: auth ? `Bearer ${process.env.ADMIN_TOKEN}` : "" },
+    headers: {
+      authorization: auth ? `Bearer ${process.env.ADMIN_TOKEN}` : "",
+      ...extraHeaders,
+    },
     socket: { remoteAddress: ip },
   };
   const res = {
@@ -301,4 +310,71 @@ test("keys can be created and revealed automatically without a dedicated encrypt
     if (previous === undefined) delete process.env.LICENSE_ENCRYPTION_KEY;
     else process.env.LICENSE_ENCRYPTION_KEY = previous;
   }
+});
+test("admin session authenticates without bearer after reload, rejects CSRF and clears on logout", async () => {
+  const request = (body, auth = false, headers = {}) =>
+    call(body, auth, "POST", "192.0.2.99", { host: "app.example", ...headers });
+  assert.equal((await request({ action: "session" })).code, 401);
+  const login = await request({ action: "login" }, true, {
+    origin: "https://app.example",
+  });
+  assert.equal(login.code, 200);
+  const setCookie = login.headers["Set-Cookie"];
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /Secure/);
+  assert.match(setCookie, /SameSite=Strict/);
+  assert.match(setCookie, /Max-Age=28800/);
+  assert.ok(!setCookie.includes(process.env.ADMIN_TOKEN));
+  const cookie = setCookie.split(";")[0];
+  assert.equal(
+    (await request({ action: "session" }, false, { cookie })).body
+      .authenticated,
+    true,
+  );
+  assert.equal(
+    (
+      await request({ action: "list" }, false, {
+        cookie,
+        origin: "https://app.example",
+      })
+    ).code,
+    200,
+  );
+  assert.equal(
+    (
+      await request({ action: "list" }, false, {
+        cookie,
+        origin: "https://evil.example",
+      })
+    ).code,
+    403,
+  );
+  assert.equal(
+    (
+      await request({ action: "create" }, false, {
+        cookie,
+        "sec-fetch-site": "cross-site",
+      })
+    ).code,
+    403,
+  );
+  assert.equal(
+    (await request({ action: "session" }, false, { cookie: cookie + "x" }))
+      .code,
+    401,
+  );
+  const logout = await request({ action: "logout" }, false, {
+    cookie,
+    origin: "https://app.example",
+  });
+  assert.equal(logout.code, 200);
+  assert.match(logout.headers["Set-Cookie"], /Max-Age=0/);
+  assert.equal(
+    (
+      await request({ action: "session" }, false, {
+        cookie: logout.headers["Set-Cookie"].split(";")[0],
+      })
+    ).code,
+    401,
+  );
 });

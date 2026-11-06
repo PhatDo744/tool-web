@@ -1,3 +1,9 @@
+import {
+  sessionCookie,
+  clearSessionCookie,
+  validSession,
+  requireSameOrigin,
+} from "../lib/admin-session.js";
 import { sealKey, openKey, vaultConfigured } from "../lib/key-vault.js";
 import { connect } from "../lib/db.js";
 import {
@@ -37,6 +43,9 @@ export function createHandler(getConnection = connect) {
       const { action } = input;
       if (
         ![
+          "login",
+          "logout",
+          "session",
           "list",
           "create",
           "revoke",
@@ -89,10 +98,24 @@ export function createHandler(getConnection = connect) {
         }
         return send(200, await verifyLicense(db, input, action === "activate"));
       }
+      if (action === "logout") {
+        requireSameOrigin(req);
+        res.setHeader("Set-Cookie", clearSessionCookie());
+        return send(200, { ok: true });
+      }
       if (!adminTokenConfigured())
         throw new ApiError(503, "ADMIN_NOT_CONFIGURED");
-      if (!adminAuthorized(req.headers.authorization))
-        throw new ApiError(401, "UNAUTHORIZED");
+      const bearer = adminAuthorized(req.headers.authorization);
+      const cookie = validSession(req);
+      if (!bearer && !cookie) throw new ApiError(401, "UNAUTHORIZED");
+      if (cookie && !bearer) requireSameOrigin(req);
+      if (action === "login") {
+        if (!bearer) throw new ApiError(401, "UNAUTHORIZED");
+        requireSameOrigin(req);
+        res.setHeader("Set-Cookie", sessionCookie());
+        return send(200, { authenticated: true });
+      }
+      if (action === "session") return send(200, { authenticated: true });
       if (action === "create") {
         const value = newLicense(input);
         await db.query(

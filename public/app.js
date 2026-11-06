@@ -1,4 +1,5 @@
 let token = "";
+let dialogGeneration = 0;
 const el = (id) => document.getElementById(id);
 const messages = {
   UNAUTHORIZED:
@@ -21,26 +22,65 @@ async function api(action, values = {}) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ action, ...values }),
   });
   const data = await response.json();
-  if (!response.ok)
-    throw Error(messages[data.error] || data.error || "Có lỗi xảy ra.");
+  if (!response.ok) {
+    const error = new Error(
+      messages[data.error] || data.error || "Có lỗi xảy ra.",
+    );
+    error.status = response.status;
+    if (response.status === 401 && action !== "login" && action !== "session") {
+      setAuthenticated(false);
+      error.message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    }
+    throw error;
+  }
   return data;
 }
 function notify(message) {
   el("status").textContent = message;
   el("status").dataset.tone = message.startsWith("Đã") ? "success" : "warning";
 }
-function showKey(key, label) {
-  el("new-key").value = key;
-  document.querySelector('label[for="new-key"]').textContent = label
-    ? `Key · ${label}`
-    : "Key sử dụng";
+function beginKeyDialog(label) {
+  dialogGeneration++;
+  el("key-dialog-title").textContent = label ? `Key · ${label}` : "Key sử dụng";
+  el("new-key").value = "";
+  el("copy").disabled = true;
+  el("key-dialog-state").textContent = "Đang tải key...";
   el("generated").hidden = false;
-  el("generated").scrollIntoView({ block: "nearest" });
+  if (!el("key-dialog").open) el("key-dialog").showModal();
+  return dialogGeneration;
+}
+function showKey(key, label) {
+  if (typeof key !== "string" || !/^NRO-[A-F0-9]{48}$/.test(key))
+    throw Error("Máy chủ không trả về key hợp lệ.");
+  if (!el("key-dialog").open) beginKeyDialog(label);
+  el("new-key").value = key;
+  el("key-dialog-state").textContent = "";
+  el("copy").disabled = false;
+}
+function clearKeyDialog() {
+  dialogGeneration++;
+  el("new-key").value = "";
+  el("copy").disabled = true;
+  el("key-dialog-state").textContent = "";
+}
+function closeKeyDialog() {
+  clearKeyDialog();
+  el("key-dialog").close();
+}
+function setAuthenticated(value) {
+  el("login").hidden = value;
+  el("dashboard").hidden = !value;
+  el("logout").hidden = !value;
+  if (!value) {
+    token = "";
+    el("licenses").replaceChildren();
+    closeKeyDialog();
+  }
 }
 async function refresh() {
   const { licenses } = await api("list");
@@ -104,11 +144,13 @@ async function refresh() {
         )
           return;
         view.disabled = true;
+        const generation = beginKeyDialog(l.label);
         try {
           const result = await api(l.recoverable ? "reveal" : "rotate", {
             id: l.id,
           });
-          showKey(result.key, l.label);
+          if (generation === dialogGeneration && el("key-dialog").open)
+            showKey(result.key, l.label);
           if (!l.recoverable) {
             await refresh();
             notify(
@@ -116,7 +158,9 @@ async function refresh() {
             );
           }
         } catch (e) {
-          notify(e.message);
+          if (generation === dialogGeneration && el("key-dialog").open)
+            el("key-dialog-state").textContent = e.message;
+          else notify(e.message);
         } finally {
           view.disabled = false;
         }
@@ -175,28 +219,35 @@ async function refresh() {
 }
 el("login-form").onsubmit = async (event) => {
   event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
   token = el("token").value.trim();
   try {
-    await refresh();
-    el("token").value = "";
-    el("login").hidden = true;
-    el("dashboard").hidden = false;
-    el("logout").hidden = false;
-    notify("");
-  } catch (e) {
+    await api("login");
     token = "";
-    notify(e.message);
+    el("token").value = "";
+    await refresh();
+    setAuthenticated(true);
+    notify("");
+  } catch (error) {
+    token = "";
+    notify(error.message);
+  } finally {
+    button.disabled = false;
   }
 };
-el("logout").onclick = () => {
-  token = "";
-  el("new-key").value = "";
-  el("generated").hidden = true;
-  el("dashboard").hidden = true;
-  el("login").hidden = false;
-  el("logout").hidden = true;
-  el("licenses").replaceChildren();
-  notify("Đã đăng xuất.");
+el("logout").onclick = async () => {
+  const button = el("logout");
+  button.disabled = true;
+  try {
+    await api("logout");
+    setAuthenticated(false);
+    notify("Đã đăng xuất.");
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    button.disabled = false;
+  }
 };
 el("create-form").onsubmit = async (event) => {
   event.preventDefault();
@@ -221,9 +272,27 @@ el("refresh").onclick = () => refresh().catch((e) => notify(e.message));
 el("copy").onclick = async () => {
   try {
     await navigator.clipboard.writeText(el("new-key").value);
-    notify("Đã sao chép key.");
+    el("key-dialog-state").textContent = "Đã sao chép key.";
   } catch {
     el("new-key").select();
-    notify("Chọn và sao chép key trong ô.");
+    el("key-dialog-state").textContent = "Chọn và sao chép key trong ô.";
   }
 };
+
+el("key-dialog-close").onclick = closeKeyDialog;
+el("key-dialog").addEventListener("click", (event) => {
+  if (event.target === el("key-dialog")) closeKeyDialog();
+});
+el("key-dialog").addEventListener("close", () => {
+  if (!el("key-dialog").open) clearKeyDialog();
+});
+(async () => {
+  try {
+    await api("session");
+    await refresh();
+    setAuthenticated(true);
+  } catch (error) {
+    setAuthenticated(false);
+    if (error.status !== 401) notify(error.message);
+  }
+})();

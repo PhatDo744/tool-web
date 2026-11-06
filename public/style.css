@@ -751,3 +751,58 @@ td button.key-action {
   background: #233a2b;
   border-color: #355740;
 }
+#key-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-width: 440px;
+  padding: 0;
+  color: #e9efed;
+  background: #151e1a;
+  border: 1px solid #385041;
+  border-radius: 18px;
+  box-shadow: 0 30px 100px #0008;
+}
+#key-dialog::backdrop {
+  background: #040b08b8;
+  backdrop-filter: blur(4px);
+}
+#generated.key-dialog-card {
+  padding: 26px;
+  margin: 0;
+  border: 0;
+}
+.key-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 25px;
+}
+.key-dialog-heading h2 {
+  overflow-wrap: anywhere;
+}
+.key-dialog-heading button {
+  border: 0;
+  background: transparent;
+  font-size: 24px;
+  padding: 2px 8px;
+  color: #b7cabc;
+}
+#key-dialog #new-key {
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+#key-dialog-state {
+  font-size: 12px;
+  min-height: 20px;
+  margin: 12px 0 18px;
+  color: #d7bd93;
+  overflow-wrap: anywhere;
+}
+#key-dialog #copy {
+  display: flex;
+  width: 100%;
+  font-size: 13px;
+  color: #153822;
+  background: #b2f5cb;
+}

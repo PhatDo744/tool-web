@@ -47,7 +47,7 @@
         </div>
       </section>
       <p id="status" role="status" aria-live="polite"></p>
-      <section id="login" class="panel login-card">
+      <section id="login" class="panel login-card" hidden>
         <div class="login-symbol" aria-hidden="true">
           <svg
             viewBox="0 0 24 24"
@@ -158,28 +158,6 @@
               <p class="hint">Tính từ lần kích hoạt đầu tiên.</p>
               <button class="primary">Tạo key <span>＋</span></button>
             </form>
-            <div id="generated" hidden>
-              <div class="generated-heading">
-                <span class="success-dot"></span
-                ><label for="new-key">Key đã sẵn sàng</label>
-              </div>
-              <textarea id="new-key" readonly rows="3"></textarea
-              ><button id="copy">
-                Sao chép key
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12h14m-5-5 5 5-5 5" />
-                </svg>
-              </button>
-              <p class="hint">Bạn có thể xem lại key trong danh sách.</p>
-            </div>
           </section>
           <section class="panel list">
             <div class="list-title">
@@ -216,5 +194,33 @@
         ><span>License Manager</span>
       </footer>
     </main>
+    <dialog
+      id="key-dialog"
+      aria-labelledby="key-dialog-title"
+      aria-describedby="key-dialog-state"
+    >
+      <section id="generated" class="key-dialog-card">
+        <div class="key-dialog-heading">
+          <h2 id="key-dialog-title">Key sử dụng</h2>
+          <button id="key-dialog-close" type="button" aria-label="Đóng">
+            ×
+          </button>
+        </div>
+        <label for="new-key" class="sr-only">Key sử dụng</label>
+        <textarea
+          id="new-key"
+          readonly
+          rows="3"
+          autocomplete="off"
+          spellcheck="false"
+        ></textarea>
+        <p id="key-dialog-state" role="status" aria-live="polite">
+          Đang tải key...
+        </p>
+        <button id="copy" type="button" class="primary" disabled>
+          Sao chép key
+        </button>
+      </section>
+    </dialog>
   </body>
 </html>

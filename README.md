@@ -11,7 +11,7 @@ Web tiếng Việt quản lý key cho PC / Android / iOS, triển khai bằng Ve
 5. App gọi `check` lúc mở ứng dụng và mỗi 300 giây. Key bị thu hồi, hết hạn hoặc thiết bị chưa đăng ký bị từ chối. Không cho tiếp tục dùng khi kiểm tra lỗi.
 6. Thu hồi key tại dashboard. App đang hoạt động nhận trạng thái mới ở lần kiểm tra tiếp theo; việc đóng ứng dụng phải được thực hiện trong client.
 
-Không có chức năng tự đăng ký/cấp key công khai. Mọi thao tác tạo, xem và thu hồi cần mã quản trị. Mã quản trị chỉ nằm trong bộ nhớ tab trình duyệt, không lưu localStorage/cookie. Tải lại trang cần đăng nhập lại.
+Không có chức năng tự đăng ký/cấp key công khai. Quản trị đăng nhập bằng mã quản trị để nhận cookie phiên được ký, HttpOnly + Secure + SameSite=Strict, tối đa 8 giờ. F5 tự khôi phục phiên; đăng xuất xóa cookie, đổi ADMIN_TOKEN làm các phiên cũ mất hiệu lực. Không lưu mã quản trị trong localStorage hoặc cookie. Thao tác dùng cookie kiểm tra Origin/Fetch Metadata để chặn yêu cầu khác nguồn.
 
 ## Chạy cục bộ
 
@@ -82,3 +82,9 @@ Dashboard có **Xem key** cho key đã có bản mã. Chỉ quản trị viên �
 Các key phát hành trước bản cập nhật chỉ có hash nên không thể đảo ngược lấy bản gốc. Khi client gửi lại key đúng, server lưu thêm bản mã bằng cấu hình quản trị có sẵn; không tự cấp quyền hay đăng ký thiết bị từ thao tác bổ sung này. Nhấn Làm mới để thấy nút Xem key. Nếu key đã mất và không có client nào gửi lại, dùng **Cấp lại key**: mã cũ ngừng hoạt động, thiết bị được gỡ, hạn dùng/giới hạn thiết bị giữ nguyên. Không cấp lại key đã thu hồi.
 
 Không có LICENSE_ENCRYPTION_KEY vẫn tạo, cấp lại và xem key bình thường qua cấu hình quản trị hiện có. Build Vercel tự thêm cột encrypted_key bằng migration chạy lặp lại an toàn; không cần tự sửa SQL hay xóa dữ liệu.
+
+### Phiên quản trị và hộp thoại xem key
+
+Sau khi đăng nhập lần đầu với bản cập nhật, web giữ phiên tối đa 8 giờ, kể cả F5. Mã quản trị chỉ dùng khi đăng nhập và không được giữ trong JavaScript sau khi máy chủ cấp cookie. Đăng xuất xóa cookie trên trình duyệt; phiên hết hạn sẽ yêu cầu đăng nhập lại.
+
+Bấm Xem key mở hộp thoại tại chỗ với trạng thái tải, key và nút sao chép. Lỗi giải mã/API cũng hiển thị ngay trong hộp thoại. Đóng hộp thoại hoặc đăng xuất xóa key khỏi trường hiển thị. Tính năng không thay đổi mã/hạn dùng của key; Cấp lại key vẫn cần xác nhận riêng.
