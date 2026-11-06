@@ -376,3 +376,63 @@ test("admin session authenticates without bearer after reload, rejects CSRF and 
     401,
   );
 });
+test("signed tickets are device-bound, short-lived and only emitted on request", async () => {
+  const { createPublicKey, verify } = await import("node:crypto");
+  const { publicSigningKey } = await import("../lib/license-ticket.js");
+  const created = await call({ action: "create" });
+  const input = {
+    key: created.body.key,
+    deviceId: "signed-receipt-device-0001",
+    platform: "pc",
+  };
+  const first = await call({ action: "activate", ...input }, false);
+  assert.equal(first.body.ticket, undefined);
+  const result = await call(
+    { action: "check", ...input, receipt: true },
+    false,
+  );
+  assert.equal(result.code, 200);
+  assert.ok(result.body.ticket);
+  const [payload, signature] = result.body.ticket.split(".");
+  const row = await publicSigningKey(db);
+  const modulus = row.public_xml.match(/<Modulus>([^<]+)<\/Modulus>/)[1];
+  const exponent = row.public_xml.match(/<Exponent>([^<]+)<\/Exponent>/)[1];
+  const publicKey = createPublicKey({
+    format: "jwk",
+    key: {
+      kty: "RSA",
+      n: Buffer.from(modulus, "base64").toString("base64url"),
+      e: Buffer.from(exponent, "base64").toString("base64url"),
+    },
+  });
+  assert.equal(
+    verify(
+      "RSA-SHA256",
+      Buffer.from(payload, "base64url"),
+      publicKey,
+      Buffer.from(signature, "base64url"),
+    ),
+    true,
+  );
+  const claims = Buffer.from(payload, "base64url").toString().split("|");
+  const { hash } = await import("../lib/core.js");
+  assert.equal(claims[2], hash(input.key));
+  assert.equal(claims[3], hash(input.deviceId));
+  assert.equal(claims[4], "pc");
+  assert.ok(Number(claims[6]) - Number(claims[5]) <= 300);
+  await call({ action: "reset-devices", id: created.body.id });
+  const denied = await call(
+    { action: "check", ...input, receipt: true },
+    false,
+  );
+  assert.equal(denied.code, 403);
+  assert.equal(denied.body.ticket, undefined);
+});
+test("expired request counter resets without a cleanup round trip", async () => {
+  const ip = "192.0.2.115";
+  await call({ action: "list" }, true, "POST", ip);
+  await db.query(
+    "UPDATE rate_limits SET hits=999,reset_at=now()-interval '1 second'",
+  );
+  assert.equal((await call({ action: "list" }, true, "POST", ip)).code, 200);
+});

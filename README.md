@@ -88,3 +88,11 @@ Không có LICENSE_ENCRYPTION_KEY vẫn tạo, cấp lại và xem key bình th�
 Sau khi đăng nhập lần đầu với bản cập nhật, web giữ phiên 30 ngày kể từ lần đăng nhập/khôi phục phiên gần nhất, kể cả F5. Mỗi lần quay lại web và xác thực phiên thành công sẽ gia hạn thêm 30 ngày. Mã quản trị chỉ dùng khi đăng nhập và không được giữ trong JavaScript sau khi máy chủ cấp cookie. Đăng xuất xóa cookie trên trình duyệt; phiên hết hạn sẽ yêu cầu đăng nhập lại.
 
 Bấm Xem key mở hộp thoại tại chỗ với trạng thái tải, key và nút sao chép. Lỗi giải mã/API cũng hiển thị ngay trong hộp thoại. Đóng hộp thoại hoặc đăng xuất xóa key khỏi trường hiển thị. Tính năng không thay đổi mã/hạn dùng của key; Cấp lại key vẫn cần xác nhận riêng.
+
+## Vé xác thực để mở nhanh PC
+
+Client mới có thể gửi `receipt:true` trong activate/check. Khi hợp lệ, phản hồi thêm ticket RSA-SHA256 (tối đa 300 giây, ràng buộc key hash + device hash + platform). Client cũ không gửi cờ này nên JSON không đổi. Private key được sinh tự động, mã hóa bằng key vault và lưu trong license_signing_keys; public key công khai tại `/api/license-public-key` để nhúng vào client khi build.
+
+Deploy web trước khi rebuild client. Init-db tự chuẩn bị signing key nếu có cấu hình quản trị; không cần thêm biến bí mật. Không xóa bảng signing key qua các lần deploy. Nếu signing key tạm không đọc được, yêu cầu check hợp lệ vẫn trả kết quả bình thường nhưng không có ticket mới; không làm người dùng mất quyền sử dụng chỉ vì tính năng cache lỗi.
+
+Vercel Functions được ghim `sin1` (Singapore), phù hợp Neon đã chọn. Đường check định kỳ dùng một truy vấn SQL cho kiểm tra key/device và cập nhật last_seen thay cho transaction nhiều lượt; rate-limit hết cửa sổ tự reset qua UPSERT. Các truy vấn bổ sung cho rate-limit, bổ sung bản mã key cũ và ký vé vẫn tồn tại. Chưa có số đo latency production; cold start Neon/Vercel vẫn có thể ảnh hưởng lần kiểm tra online đầu tiên.

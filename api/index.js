@@ -1,3 +1,4 @@
+import { issueTicket } from "../lib/license-ticket.js";
 import {
   sessionCookie,
   clearSessionCookie,
@@ -65,11 +66,14 @@ export function createHandler(getConnection = connect) {
       const bucket = hash(
         `${ip || "unknown"}:${["activate", "check"].includes(action) ? "client" : "admin"}`,
       );
-      await db.query("DELETE FROM rate_limits WHERE reset_at < now()");
+      if (action === "list" || action === "login")
+        await db.query(
+          "DELETE FROM rate_limits WHERE reset_at < now() - interval '1 day'",
+        );
       const {
         rows: [limit],
       } = await db.query(
-        "INSERT INTO rate_limits(bucket,hits,reset_at) VALUES($1,1,now()+interval '1 minute') ON CONFLICT(bucket) DO UPDATE SET hits=rate_limits.hits+1 RETURNING hits",
+        "INSERT INTO rate_limits(bucket,hits,reset_at) VALUES($1,1,now()+interval '1 minute') ON CONFLICT(bucket) DO UPDATE SET hits=CASE WHEN rate_limits.reset_at<=now() THEN 1 ELSE rate_limits.hits+1 END,reset_at=CASE WHEN rate_limits.reset_at<=now() THEN now()+interval '1 minute' ELSE rate_limits.reset_at END RETURNING hits",
         [bucket],
       );
       if (limit.hits > 60) {
@@ -96,7 +100,15 @@ export function createHandler(getConnection = connect) {
               [sealKey(key, legacy.id), legacy.id],
             );
         }
-        return send(200, await verifyLicense(db, input, action === "activate"));
+        const result = await verifyLicense(db, input, action === "activate");
+        if (input.receipt === true) {
+          try {
+            result.ticket = await issueTicket(db, input, result);
+          } catch (error) {
+            console.error("Ticket unavailable:", error.code || error.name);
+          }
+        }
+        return send(200, result);
       }
       if (action === "logout") {
         requireSameOrigin(req);

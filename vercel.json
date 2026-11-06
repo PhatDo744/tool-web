@@ -24,5 +24,8 @@
     }
   ],
   "buildCommand": "npm run db:init",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "regions": [
+    "sin1"
+  ]
 }

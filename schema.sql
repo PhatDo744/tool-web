@@ -24,3 +24,8 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits(reset_at);
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS encrypted_key text;
+CREATE TABLE IF NOT EXISTS license_signing_keys (
+ id text PRIMARY KEY,
+ public_xml text NOT NULL,
+ private_encrypted text NOT NULL
+);
