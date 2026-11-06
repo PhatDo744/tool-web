@@ -20,7 +20,7 @@ Node.js >=22 (đã kiểm tra Node 24), PostgreSQL tương thích Neon/Supabase.
 ```sh
 npm ci
 cp .env.example .env.local
-# Điền DATABASE_URL, ADMIN_TOKEN và LICENSE_ENCRYPTION_KEY vào .env.local bằng trình soạn thảo an toàn.
+# Điền DATABASE_URL và ADMIN_TOKEN vào .env.local bằng trình soạn thảo an toàn.
 npm run db:init
 npm test
 npm run dev
@@ -33,7 +33,7 @@ Sinh ADMIN_TOKEN bằng password manager hoặc `node -e "console.log(require('c
 1. Tạo tài khoản tại https://vercel.com bằng GitHub. Tạo tài khoản tại https://console.neon.tech và project PostgreSQL (có thể dùng gói miễn phí theo điều kiện nhà cung cấp).
 2. Neon → **Connect** → sao chép connection string có TLS. Chọn endpoint pooled cho Vercel. Lưu trực tiếp vào Vercel, không gửi trong chat.
 3. Vercel → **Add New → Project** → import `PhatDo744/tool-web`. Cho phép Vercel đọc repository nếu chưa thấy nó. Framework chọn **Other**, Node.js **24.x**.
-4. Trong **Environment Variables**, đặt `DATABASE_URL` là connection string và `ADMIN_TOKEN` là chuỗi bí mật mạnh của bạn; `LICENSE_ENCRYPTION_KEY` là chuỗi ngẫu nhiên riêng ít nhất 32 ký tự để mã hóa key. Áp dụng cho Production; chỉ bật Preview nếu muốn dùng chung database ở môi trường preview.
+4. Trong **Environment Variables**, đặt `DATABASE_URL` là connection string và `ADMIN_TOKEN` là chuỗi bí mật mạnh của bạn. Không cần thêm biến để lưu và xem lại key. Áp dụng cho Production; chỉ bật Preview nếu muốn dùng chung database ở môi trường preview.
 5. Deploy. `vercel.json` chạy `npm run db:init` trong build để tạo bảng; build sẽ thất bại nếu database chưa kết nối được. Output Directory là `public`. API ở `/api/index`.
 6. Mở domain Vercel vừa cấp → đăng nhập quản trị → tạo một key thử → gọi `activate`, `check`, thu hồi key rồi gọi `check` lại. Đừng phát hành bản mod trước khi kiểm tra đủ quy trình với URL production.
 
@@ -71,10 +71,14 @@ Dashboard có nút **Gỡ thiết bị** cho key đã kích hoạt. Thao tác y�
 
 ## Xem lại key và key cũ
 
-Thêm `LICENSE_ENCRYPTION_KEY` trong Environment Variables của Vercel (Production), giá trị ngẫu nhiên riêng tối thiểu 32 ký tự, khuyến nghị 64 ký tự hex. Không dùng lại ADMIN_TOKEN. Redeploy sau khi thêm biến. Giữ nguyên và sao lưu an toàn giá trị này: thay/mất nó sẽ làm các bản mã hiện tại không giải mã được. Thay ADMIN_TOKEN không ảnh hưởng mã hóa vì hai biến tách biệt.
+Web tự mã hóa key bằng AES-256-GCM, suy ra khóa có phân tách mục đích từ ADMIN_TOKEN đã cấu hình. Không cần nhập thêm LICENSE_ENCRYPTION_KEY. Key cấp cho khách vẫn sinh ngẫu nhiên; không phải ADMIN_TOKEN.
+
+Nếu đã có LICENSE_ENCRYPTION_KEY riêng, hệ thống tiếp tục dùng nó và đọc được các bản mã v1 cũ. Đây là cấu hình tùy chọn, không cần xóa hoặc nhập lại. Giữ ổn định bí mật dùng mã hóa và sao lưu an toàn.
+
+Đổi ADMIN_TOKEN trong chế độ tự động: trước khi đổi, đặt LICENSE_ENCRYPTION_KEY bằng giá trị ADMIN_TOKEN cũ trong Vercel (không gửi vào chat), sau đó đổi ADMIN_TOKEN và Redeploy cùng lúc. Cách này giữ khả năng đọc key tự động cũ và tách mã đăng nhập mới khỏi mã hóa. Nếu đã dùng biến mã hóa riêng từ đầu, đổi ADMIN_TOKEN không ảnh hưởng các key v1.
 
 Dashboard có **Xem key** cho key đã có bản mã. Chỉ quản trị viên được gọi API `reveal`; danh sách thường không trả key hoặc ciphertext, phản hồi không được cache. Key hiện trong khung sao chép và được xóa khỏi giao diện khi đăng xuất.
 
-Các key phát hành trước bản cập nhật chỉ có hash nên không thể đảo ngược lấy bản gốc. Khi client gửi lại key đúng, server lưu thêm bản mã nếu đã cấu hình LICENSE_ENCRYPTION_KEY; không tự cấp quyền hay đăng ký thiết bị từ thao tác bổ sung này. Nhấn Làm mới để thấy nút Xem key. Nếu key đã mất và không có client nào gửi lại, dùng **Cấp lại key**: mã cũ ngừng hoạt động, thiết bị được gỡ, hạn dùng/giới hạn thiết bị giữ nguyên. Không cấp lại key đã thu hồi.
+Các key phát hành trước bản cập nhật chỉ có hash nên không thể đảo ngược lấy bản gốc. Khi client gửi lại key đúng, server lưu thêm bản mã bằng cấu hình quản trị có sẵn; không tự cấp quyền hay đăng ký thiết bị từ thao tác bổ sung này. Nhấn Làm mới để thấy nút Xem key. Nếu key đã mất và không có client nào gửi lại, dùng **Cấp lại key**: mã cũ ngừng hoạt động, thiết bị được gỡ, hạn dùng/giới hạn thiết bị giữ nguyên. Không cấp lại key đã thu hồi.
 
-Nếu thiếu LICENSE_ENCRYPTION_KEY, kiểm tra/kích hoạt các key hiện có vẫn chạy; tạo/cấp lại/xem bản mã yêu cầu cấu hình biến này. Build Vercel tự thêm cột encrypted_key bằng migration chạy lặp lại an toàn; không cần tự sửa SQL hay xóa dữ liệu.
+Không có LICENSE_ENCRYPTION_KEY vẫn tạo, cấp lại và xem key bình thường qua cấu hình quản trị hiện có. Build Vercel tự thêm cột encrypted_key bằng migration chạy lặp lại an toàn; không cần tự sửa SQL hay xóa dữ liệu.

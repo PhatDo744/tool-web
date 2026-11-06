@@ -26,3 +26,32 @@ test("AES-GCM rejects row swapping, ciphertext tampering and incorrect secret", 
     else process.env.LICENSE_ENCRYPTION_KEY = previous;
   }
 });
+test("automatic encryption is compatible with optional override and admin-secret rotation", () => {
+  const originalAdmin = process.env.ADMIN_TOKEN,
+    originalVault = process.env.LICENSE_ENCRYPTION_KEY;
+  const oldAdmin = "automatic-admin-test-".repeat(4);
+  try {
+    process.env.ADMIN_TOKEN = oldAdmin;
+    delete process.env.LICENSE_ENCRYPTION_KEY;
+    const key = "NRO-" + "B".repeat(48);
+    const envelope = sealKey(key, "auto-license");
+    assert.ok(envelope.startsWith("a1."));
+    assert.equal(openKey(envelope, "auto-license"), key);
+    process.env.LICENSE_ENCRYPTION_KEY = "independent-vault-test-".repeat(3);
+    assert.equal(openKey(envelope, "auto-license"), key);
+    const dedicated = sealKey(key, "auto-license");
+    assert.ok(dedicated.startsWith("v1."));
+    assert.equal(openKey(dedicated, "auto-license"), key);
+    process.env.LICENSE_ENCRYPTION_KEY = oldAdmin;
+    process.env.ADMIN_TOKEN = "new-admin-test-".repeat(4);
+    assert.equal(openKey(envelope, "auto-license"), key);
+    assert.throws(() => openKey(envelope, "different-license"), {
+      message: "KEY_DECRYPTION_FAILED",
+    });
+  } finally {
+    if (originalAdmin === undefined) delete process.env.ADMIN_TOKEN;
+    else process.env.ADMIN_TOKEN = originalAdmin;
+    if (originalVault === undefined) delete process.env.LICENSE_ENCRYPTION_KEY;
+    else process.env.LICENSE_ENCRYPTION_KEY = originalVault;
+  }
+});

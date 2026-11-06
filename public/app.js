@@ -9,9 +9,9 @@ const messages = {
   RATE_LIMITED: "Quá nhiều yêu cầu. Vui lòng chờ một phút.",
   INVALID_INPUT: "Thông tin chưa hợp lệ.",
   KEY_STORAGE_NOT_CONFIGURED:
-    "Thêm LICENSE_ENCRYPTION_KEY (ít nhất 32 ký tự ngẫu nhiên) trong Vercel rồi Redeploy để lưu và xem lại key.",
+    "Cấu hình ADMIN_TOKEN hợp lệ trên máy chủ để lưu và xem lại key.",
   KEY_DECRYPTION_FAILED:
-    "Không giải mã được key. Kiểm tra LICENSE_ENCRYPTION_KEY có đúng giá trị ban đầu không.",
+    "Không giải mã được key. Cấu hình bí mật trên máy chủ đã thay đổi; cần khôi phục giá trị ban đầu.",
   KEY_NOT_RECOVERABLE:
     "Key cũ chỉ có bản băm. Hãy cấp lại key hoặc chờ ứng dụng gửi key để hệ thống lưu bản mã hóa.",
   LICENSE_REVOKED: "Không thể cấp lại key đã thu hồi.",

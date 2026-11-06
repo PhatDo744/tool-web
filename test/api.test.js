@@ -260,34 +260,45 @@ test("reissue invalidates old key but preserves expiry, activation and device al
     "LICENSE_REVOKED",
   );
 });
-test("missing vault configuration blocks issuance without changing existing license checks", async () => {
-  const created = await call({ action: "create" });
-  const key = process.env.LICENSE_ENCRYPTION_KEY;
+test("keys can be created and revealed automatically without a dedicated encryption variable", async () => {
+  const previous = process.env.LICENSE_ENCRYPTION_KEY;
   try {
     delete process.env.LICENSE_ENCRYPTION_KEY;
+    const created = await call({ action: "create", label: "Automatic vault" });
+    assert.equal(created.code, 201);
+    const {
+      rows: [stored],
+    } = await db.query("SELECT encrypted_key FROM licenses WHERE id=$1", [
+      created.body.id,
+    ]);
+    assert.ok(stored.encrypted_key.startsWith("a1."));
     assert.equal(
-      (await call({ action: "create" })).body.error,
-      "KEY_STORAGE_NOT_CONFIGURED",
+      (await call({ action: "reveal", id: created.body.id })).body.key,
+      created.body.key,
     );
-    assert.equal(
-      (await call({ action: "reveal", id: created.body.id })).body.error,
-      "KEY_STORAGE_NOT_CONFIGURED",
+    const activated = await call(
+      {
+        action: "activate",
+        key: created.body.key,
+        deviceId: "auto-vault-client-device-001",
+        platform: "pc",
+      },
+      false,
     );
+    assert.equal(activated.body.valid, true);
+    await call({ action: "reset-devices", id: created.body.id });
     assert.equal(
-      (
-        await call(
-          {
-            action: "activate",
-            key: created.body.key,
-            deviceId: "no-vault-client-device-001",
-            platform: "pc",
-          },
-          false,
-        )
-      ).body.valid,
-      true,
+      (await call({ action: "reveal", id: created.body.id })).body.key,
+      created.body.key,
+    );
+    const replacement = await call({ action: "rotate", id: created.body.id });
+    assert.equal(replacement.code, 200);
+    assert.equal(
+      (await call({ action: "reveal", id: created.body.id })).body.key,
+      replacement.body.key,
     );
   } finally {
-    process.env.LICENSE_ENCRYPTION_KEY = key;
+    if (previous === undefined) delete process.env.LICENSE_ENCRYPTION_KEY;
+    else process.env.LICENSE_ENCRYPTION_KEY = previous;
   }
 });
