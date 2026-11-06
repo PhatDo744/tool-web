@@ -11,7 +11,7 @@ Web tiếng Việt quản lý key cho PC / Android / iOS, triển khai bằng Ve
 5. App gọi `check` lúc mở ứng dụng và mỗi 300 giây. Key bị thu hồi, hết hạn hoặc thiết bị chưa đăng ký bị từ chối. Không cho tiếp tục dùng khi kiểm tra lỗi.
 6. Thu hồi key tại dashboard. App đang hoạt động nhận trạng thái mới ở lần kiểm tra tiếp theo; việc đóng ứng dụng phải được thực hiện trong client.
 
-Không có chức năng tự đăng ký/cấp key công khai. Quản trị đăng nhập bằng mã quản trị để nhận cookie phiên được ký, HttpOnly + Secure + SameSite=Strict, tối đa 8 giờ. F5 tự khôi phục phiên; đăng xuất xóa cookie, đổi ADMIN_TOKEN làm các phiên cũ mất hiệu lực. Không lưu mã quản trị trong localStorage hoặc cookie. Thao tác dùng cookie kiểm tra Origin/Fetch Metadata để chặn yêu cầu khác nguồn.
+Không có chức năng tự đăng ký/cấp key công khai. Quản trị đăng nhập bằng mã quản trị để nhận cookie phiên được ký, HttpOnly + Secure + SameSite=Strict, 30 ngày kể từ lần đăng nhập/khôi phục phiên gần nhất. F5 tự khôi phục phiên; đăng xuất xóa cookie, đổi ADMIN_TOKEN làm các phiên cũ mất hiệu lực. Không lưu mã quản trị trong localStorage hoặc cookie. Thao tác dùng cookie kiểm tra Origin/Fetch Metadata để chặn yêu cầu khác nguồn.
 
 ## Chạy cục bộ
 
@@ -85,6 +85,6 @@ Không có LICENSE_ENCRYPTION_KEY vẫn tạo, cấp lại và xem key bình th�
 
 ### Phiên quản trị và hộp thoại xem key
 
-Sau khi đăng nhập lần đầu với bản cập nhật, web giữ phiên tối đa 8 giờ, kể cả F5. Mã quản trị chỉ dùng khi đăng nhập và không được giữ trong JavaScript sau khi máy chủ cấp cookie. Đăng xuất xóa cookie trên trình duyệt; phiên hết hạn sẽ yêu cầu đăng nhập lại.
+Sau khi đăng nhập lần đầu với bản cập nhật, web giữ phiên 30 ngày kể từ lần đăng nhập/khôi phục phiên gần nhất, kể cả F5. Mỗi lần quay lại web và xác thực phiên thành công sẽ gia hạn thêm 30 ngày. Mã quản trị chỉ dùng khi đăng nhập và không được giữ trong JavaScript sau khi máy chủ cấp cookie. Đăng xuất xóa cookie trên trình duyệt; phiên hết hạn sẽ yêu cầu đăng nhập lại.
 
 Bấm Xem key mở hộp thoại tại chỗ với trạng thái tải, key và nút sao chép. Lỗi giải mã/API cũng hiển thị ngay trong hộp thoại. Đóng hộp thoại hoặc đăng xuất xóa key khỏi trường hiển thị. Tính năng không thay đổi mã/hạn dùng của key; Cấp lại key vẫn cần xác nhận riêng.

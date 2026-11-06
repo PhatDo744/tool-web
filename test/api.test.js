@@ -323,14 +323,12 @@ test("admin session authenticates without bearer after reload, rejects CSRF and 
   assert.match(setCookie, /HttpOnly/);
   assert.match(setCookie, /Secure/);
   assert.match(setCookie, /SameSite=Strict/);
-  assert.match(setCookie, /Max-Age=28800/);
+  assert.match(setCookie, /Max-Age=2592000/);
   assert.ok(!setCookie.includes(process.env.ADMIN_TOKEN));
   const cookie = setCookie.split(";")[0];
-  assert.equal(
-    (await request({ action: "session" }, false, { cookie })).body
-      .authenticated,
-    true,
-  );
+  const restored = await request({ action: "session" }, false, { cookie });
+  assert.equal(restored.body.authenticated, true);
+  assert.match(restored.headers["Set-Cookie"], /Max-Age=2592000/);
   assert.equal(
     (
       await request({ action: "list" }, false, {

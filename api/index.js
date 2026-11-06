@@ -115,7 +115,11 @@ export function createHandler(getConnection = connect) {
         res.setHeader("Set-Cookie", sessionCookie());
         return send(200, { authenticated: true });
       }
-      if (action === "session") return send(200, { authenticated: true });
+      if (action === "session") {
+        requireSameOrigin(req);
+        res.setHeader("Set-Cookie", sessionCookie());
+        return send(200, { authenticated: true });
+      }
       if (action === "create") {
         const value = newLicense(input);
         await db.query(
