@@ -8,6 +8,13 @@ const messages = {
   SERVICE_UNAVAILABLE: "Chưa kết nối được database. Kiểm tra cấu hình máy chủ.",
   RATE_LIMITED: "Quá nhiều yêu cầu. Vui lòng chờ một phút.",
   INVALID_INPUT: "Thông tin chưa hợp lệ.",
+  KEY_STORAGE_NOT_CONFIGURED:
+    "Thêm LICENSE_ENCRYPTION_KEY (ít nhất 32 ký tự ngẫu nhiên) trong Vercel rồi Redeploy để lưu và xem lại key.",
+  KEY_DECRYPTION_FAILED:
+    "Không giải mã được key. Kiểm tra LICENSE_ENCRYPTION_KEY có đúng giá trị ban đầu không.",
+  KEY_NOT_RECOVERABLE:
+    "Key cũ chỉ có bản băm. Hãy cấp lại key hoặc chờ ứng dụng gửi key để hệ thống lưu bản mã hóa.",
+  LICENSE_REVOKED: "Không thể cấp lại key đã thu hồi.",
 };
 async function api(action, values = {}) {
   const response = await fetch("/api/index", {
@@ -26,6 +33,14 @@ async function api(action, values = {}) {
 function notify(message) {
   el("status").textContent = message;
   el("status").dataset.tone = message.startsWith("Đã") ? "success" : "warning";
+}
+function showKey(key, label) {
+  el("new-key").value = key;
+  document.querySelector('label[for="new-key"]').textContent = label
+    ? `Key · ${label}`
+    : "Key sử dụng";
+  el("generated").hidden = false;
+  el("generated").scrollIntoView({ block: "nearest" });
 }
 async function refresh() {
   const { licenses } = await api("list");
@@ -73,6 +88,41 @@ async function refresh() {
       row.append(td);
     });
     const td = document.createElement("td");
+    if (l.recoverable || !l.revoked_at) {
+      const view = document.createElement("button");
+      view.className = "key-action";
+      view.textContent = l.recoverable ? "Xem key" : "Cấp lại key";
+      view.title = l.recoverable
+        ? "Xem và sao chép key"
+        : "Key cũ chưa có bản mã hóa. Cấp lại giữ nguyên hạn dùng.";
+      view.onclick = async () => {
+        if (
+          !l.recoverable &&
+          !confirm(
+            "Cấp key thay thế? Key cũ sẽ ngừng hoạt động, các thiết bị cần kích hoạt lại. Thời hạn và giới hạn thiết bị giữ nguyên.",
+          )
+        )
+          return;
+        view.disabled = true;
+        try {
+          const result = await api(l.recoverable ? "reveal" : "rotate", {
+            id: l.id,
+          });
+          showKey(result.key, l.label);
+          if (!l.recoverable) {
+            await refresh();
+            notify(
+              "Đã cấp lại key. Hạn dùng giữ nguyên; key cũ đã ngừng hoạt động.",
+            );
+          }
+        } catch (e) {
+          notify(e.message);
+        } finally {
+          view.disabled = false;
+        }
+      };
+      td.append(view);
+    }
     if (!l.revoked_at) {
       if (l.devices > 0) {
         const reset = document.createElement("button");
@@ -158,9 +208,8 @@ el("create-form").onsubmit = async (event) => {
       durationDays: Number(el("days").value),
       maxDevices: Number(el("devices").value),
     });
-    el("new-key").value = result.key;
-    el("generated").hidden = false;
-    notify("Đã tạo key. Hãy sao chép và lưu lại ngay.");
+    showKey(result.key, el("label").value);
+    notify("Đã tạo key. Bạn có thể xem lại trong danh sách.");
     await refresh();
   } catch (e) {
     notify(e.message);

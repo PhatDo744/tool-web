@@ -23,3 +23,4 @@ CREATE TABLE IF NOT EXISTS rate_limits (
  reset_at timestamptz NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits(reset_at);
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS encrypted_key text;

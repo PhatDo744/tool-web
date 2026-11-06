@@ -745,3 +745,9 @@ button.quiet,
 .table-wrap {
   position: relative;
 }
+
+td button.key-action {
+  color: #b2f5cb;
+  background: #233a2b;
+  border-color: #355740;
+}

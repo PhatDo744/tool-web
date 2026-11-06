@@ -6,7 +6,7 @@ Web tiếng Việt quản lý key cho PC / Android / iOS, triển khai bằng Ve
 
 1. Quản trị đăng nhập bằng `ADMIN_TOKEN` (tối thiểu 32 ký tự, nên sinh ngẫu nhiên 32 byte).
 2. Nhập ghi chú khách hàng, thời hạn 1–3650 ngày và giới hạn 1–100 thiết bị. Mặc định 30 ngày / 1 thiết bị; có thể thay đổi từng key.
-3. Máy chủ sinh key ngẫu nhiên 192 bit. Key gốc chỉ hiện một lần, cơ sở dữ liệu chỉ lưu SHA-256. Gửi key riêng cho khách, không đặt key trong URL.
+3. Máy chủ sinh key ngẫu nhiên 192 bit. Cơ sở dữ liệu lưu SHA-256 để xác thực và AES-256-GCM để quản trị viên xem lại key; không lưu key gốc dạng rõ. Gửi key riêng cho khách, không đặt key trong URL.
 4. App gửi key + định danh cài đặt vào API `activate`. Lần kích hoạt thành công đầu tiên bắt đầu tính hạn theo giờ PostgreSQL. Các lần sau không gia hạn.
 5. App gọi `check` lúc mở ứng dụng và mỗi 300 giây. Key bị thu hồi, hết hạn hoặc thiết bị chưa đăng ký bị từ chối. Không cho tiếp tục dùng khi kiểm tra lỗi.
 6. Thu hồi key tại dashboard. App đang hoạt động nhận trạng thái mới ở lần kiểm tra tiếp theo; việc đóng ứng dụng phải được thực hiện trong client.
@@ -20,7 +20,7 @@ Node.js >=22 (đã kiểm tra Node 24), PostgreSQL tương thích Neon/Supabase.
 ```sh
 npm ci
 cp .env.example .env.local
-# Điền DATABASE_URL và ADMIN_TOKEN vào .env.local bằng trình soạn thảo an toàn.
+# Điền DATABASE_URL, ADMIN_TOKEN và LICENSE_ENCRYPTION_KEY vào .env.local bằng trình soạn thảo an toàn.
 npm run db:init
 npm test
 npm run dev
@@ -33,7 +33,7 @@ Sinh ADMIN_TOKEN bằng password manager hoặc `node -e "console.log(require('c
 1. Tạo tài khoản tại https://vercel.com bằng GitHub. Tạo tài khoản tại https://console.neon.tech và project PostgreSQL (có thể dùng gói miễn phí theo điều kiện nhà cung cấp).
 2. Neon → **Connect** → sao chép connection string có TLS. Chọn endpoint pooled cho Vercel. Lưu trực tiếp vào Vercel, không gửi trong chat.
 3. Vercel → **Add New → Project** → import `PhatDo744/tool-web`. Cho phép Vercel đọc repository nếu chưa thấy nó. Framework chọn **Other**, Node.js **24.x**.
-4. Trong **Environment Variables**, đặt `DATABASE_URL` là connection string và `ADMIN_TOKEN` là chuỗi bí mật mạnh của bạn. Áp dụng cho Production; chỉ bật Preview nếu muốn dùng chung database ở môi trường preview.
+4. Trong **Environment Variables**, đặt `DATABASE_URL` là connection string và `ADMIN_TOKEN` là chuỗi bí mật mạnh của bạn; `LICENSE_ENCRYPTION_KEY` là chuỗi ngẫu nhiên riêng ít nhất 32 ký tự để mã hóa key. Áp dụng cho Production; chỉ bật Preview nếu muốn dùng chung database ở môi trường preview.
 5. Deploy. `vercel.json` chạy `npm run db:init` trong build để tạo bảng; build sẽ thất bại nếu database chưa kết nối được. Output Directory là `public`. API ở `/api/index`.
 6. Mở domain Vercel vừa cấp → đăng nhập quản trị → tạo một key thử → gọi `activate`, `check`, thu hồi key rồi gọi `check` lại. Đừng phát hành bản mod trước khi kiểm tra đủ quy trình với URL production.
 
@@ -68,3 +68,13 @@ Repo `modnro` được khảo sát có launcher WinForms .NET 8 và mod Unity ne
 ### Gỡ thiết bị khi nâng cấp client
 
 Dashboard có nút **Gỡ thiết bị** cho key đã kích hoạt. Thao tác yêu cầu mã quản trị và xác nhận, xóa các thiết bị đã gắn nhưng giữ nguyên hạn dùng/trạng thái thu hồi. App cũ sẽ bị từ chối trong lần check tiếp theo; app mới có thể activate lại trong số thiết bị cho phép. Dùng một lần khi chuyển từ ID Unity cũ sang ID dùng chung QLTK/game; không cần tạo key mới.
+
+## Xem lại key và key cũ
+
+Thêm `LICENSE_ENCRYPTION_KEY` trong Environment Variables của Vercel (Production), giá trị ngẫu nhiên riêng tối thiểu 32 ký tự, khuyến nghị 64 ký tự hex. Không dùng lại ADMIN_TOKEN. Redeploy sau khi thêm biến. Giữ nguyên và sao lưu an toàn giá trị này: thay/mất nó sẽ làm các bản mã hiện tại không giải mã được. Thay ADMIN_TOKEN không ảnh hưởng mã hóa vì hai biến tách biệt.
+
+Dashboard có **Xem key** cho key đã có bản mã. Chỉ quản trị viên được gọi API `reveal`; danh sách thường không trả key hoặc ciphertext, phản hồi không được cache. Key hiện trong khung sao chép và được xóa khỏi giao diện khi đăng xuất.
+
+Các key phát hành trước bản cập nhật chỉ có hash nên không thể đảo ngược lấy bản gốc. Khi client gửi lại key đúng, server lưu thêm bản mã nếu đã cấu hình LICENSE_ENCRYPTION_KEY; không tự cấp quyền hay đăng ký thiết bị từ thao tác bổ sung này. Nhấn Làm mới để thấy nút Xem key. Nếu key đã mất và không có client nào gửi lại, dùng **Cấp lại key**: mã cũ ngừng hoạt động, thiết bị được gỡ, hạn dùng/giới hạn thiết bị giữ nguyên. Không cấp lại key đã thu hồi.
+
+Nếu thiếu LICENSE_ENCRYPTION_KEY, kiểm tra/kích hoạt các key hiện có vẫn chạy; tạo/cấp lại/xem bản mã yêu cầu cấu hình biến này. Build Vercel tự thêm cột encrypted_key bằng migration chạy lặp lại an toàn; không cần tự sửa SQL hay xóa dữ liệu.
